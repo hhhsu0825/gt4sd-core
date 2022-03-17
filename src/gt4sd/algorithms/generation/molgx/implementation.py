@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from ....extras import EXTRAS_ENABLED
 
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 if EXTRAS_ENABLED:
-    from AMD_Analytics.amdsdk import AMDsdk
+    from ....extras.molgx import *  # Hsu
 
     class MolGXGenerator:
         """Interface for MolGX generator."""
@@ -18,35 +18,30 @@ if EXTRAS_ENABLED:
         def __init__(
             self,
             resources_path: str,
-            tag_name: str,
-            homo_energy_value: float = -0.25,
-            lumo_energy_value: float = 0.08,
-            use_linear_model: bool = True,
-            number_of_candidates: int = 2,
-            maximum_number_of_candidates: int = 3,
-            maximum_number_of_solutions: int = 3,
-            maximum_number_of_nodes: int = 50000,
-            beam_size: int = 2000,
+            model_name: str,
+            homo_energy_value: Tuple[float, float] = (-0.5, 0.5),
+            lumo_energy_value: Tuple[float, float] = (-0.5, 0.5),
+            number_of_candidates: int = 10,
+            maximum_number_of_candidates: int = 50,
+            maximum_number_of_molecules: int = 100,
+            maximum_number_of_solutions: int = 10,
+            maximum_number_of_nodes: int = 200000,
+            beam_size: int = 1000,
             without_estimate: bool = True,
-            use_specific_rings: bool = True,
-            use_fragment_const: bool = False,
         ) -> None:
             """Instantiate a MolGX generator.
 
             Args:
                 resources_path: path to the resources for model loading.
-                tag_name: tag for the pretrained model.
-                homo_energy_value: target HOMO energy value. Defaults to -0.25.
-                lumo_energy_value: target LUMO energy value. Defaults to 0.08.
-                use_linear_model: linear model usage. Defaults to True.
-                number_of_candidates: number of candidates to consider. Defaults to 2.
-                maximum_number_of_candidates: maximum number of candidates to consider. Defaults to 3.
-                maximum_number_of_solutions: maximum number of solutions. Defaults to 3.
-                maximum_number_of_nodes: maximum number of nodes in the graph exploration. Defaults to 50000.
-                beam_size: size of the beam during search. Defaults to 2000.
-                without_estimate: disable estimates. Defaults to True.
-                use_specific_rings: flag to indicate whether specific rings are used. Defaults to True.
-                use_fragment_const: using constant fragments. Defaults to False.
+                homo_energy_value: target HOMO energy range. Defaults to (-0.5, 0.5).
+                lumo_energy_value: target LUMO energy range. Defaults to (-0.5, 0.5).
+                number_of_candidates: number of feature vectors at a time. Defaults to 10.
+                maximum_number_of_candidates: maximum number of candidate feature vector to consider. Defaults to 50.
+                maximum_number_of_molecules: maximum number of molecules to obtain. Defaults to 100.
+                maximum_number_of_solutions: maximum number of solutions to discover. Defaults to 10.
+                maximum_number_of_nodes: maximum number of search tree nodes in the graph exploration. Defaults to 200000.
+                beam_size: size of the beam during search. Defaults to 1000.
+                without_estimate: generation without feature estimates. Defaults to False.
 
             Raises:
                 RuntimeError: in the case extras are disabled.
@@ -56,25 +51,23 @@ if EXTRAS_ENABLED:
 
             # loading artifacts
             self.resources_path = resources_path
-            self.tag_name = tag_name
-            self.amd = self.load_molgx(self.resources_path, self.tag_name)
-            self.molecules_data, self.target_property = self.amd.LoadPickle("model")
+            self.model_name = model_name
+            self.amd = self.load_molgx(self.resources_path)
+            self.molecules_data, self.target_property = self.amd.LoadPickle(self.model_name)
             # algorithm parameters
             self._homo_energy_value = homo_energy_value
             self._lumo_energy_value = lumo_energy_value
-            self._use_linear_model = use_linear_model
             self._number_of_candidates = number_of_candidates
             self._maximum_number_of_candidates = maximum_number_of_candidates
+            self._maximum_number_of_molecules = maximum_number_of_molecules
             self._maximum_number_of_solutions = maximum_number_of_solutions
             self._maximum_number_of_nodes = maximum_number_of_nodes
             self._beam_size = beam_size
             self._without_estimate = without_estimate
-            self._use_specific_rings = use_specific_rings
-            self._use_fragment_const = use_fragment_const
             self._parameters = self._create_parameters_dictionary()
 
         @staticmethod
-        def load_molgx(resource_path: str, tag_name: str) -> AMDsdk:
+        def load_molgx(resource_path: str) -> molgxsdk:
             """Load MolGX model.
 
             Args:
@@ -84,10 +77,9 @@ if EXTRAS_ENABLED:
             Returns:
                 MolGX model SDK.
             """
-            return AMDsdk(
-                dir_pickle=os.path.join(resource_path, "pickle"),
-                dir_data=os.path.join(resource_path, "data"),
-                tag_data=tag_name,
+
+            return MolgxSdk(
+                dir_pickle=resource_path,
             )
 
         def _create_parameters_dictionary(self) -> Dict[str, Any]:
@@ -96,46 +88,35 @@ if EXTRAS_ENABLED:
             Returns:
                 the parameters to run MolGX.
             """
-            self.target_property["homo"] = (self.homo_energy_value,) * 2
-            self.target_property["lumo"] = (self.lumo_energy_value,) * 2
+            self.target_property["homo"] = self.homo_energy_value
+            self.target_property["lumo"] = self.lumo_energy_value
             parameters: Dict[str, Any] = {}
             parameters["target_property"] = self.target_property
-            parameters["use_linear_model"] = self.use_linear_model
             parameters["num_candidate"] = self.number_of_candidates
             parameters["max_candidate"] = self.maximum_number_of_candidates
+            parameters["max_molecule"] = self.maximum_number_of_molecules
             parameters["max_solution"] = self.maximum_number_of_solutions
             parameters["max_node"] = self.maximum_number_of_nodes
             parameters["beam_size"] = self.beam_size
             parameters["without_estimate"] = self.without_estimate
-            parameters["use_specific_rings"] = self.use_specific_rings
-            parameters["use_fragment_const"] = self.use_fragment_const
             return parameters
 
         @property
-        def homo_energy_value(self) -> float:
+        def homo_energy_value(self) -> Tuple:
             return self._homo_energy_value
 
         @homo_energy_value.setter
-        def homo_energy_value(self, value: float) -> None:
+        def homo_energy_value(self, value: Tuple) -> None:
             self._homo_energy_value = value
             self.parameters = self._create_parameters_dictionary()
 
         @property
-        def lumo_energy_value(self) -> float:
+        def lumo_energy_value(self) -> Tuple:
             return self._lumo_energy_value
 
         @lumo_energy_value.setter
-        def lumo_energy_value(self, value: float) -> None:
+        def lumo_energy_value(self, value: Tuple) -> None:
             self._lumo_energy_value = value
-            self.parameters = self._create_parameters_dictionary()
-
-        @property
-        def use_linear_model(self) -> bool:
-            return self._use_linear_model
-
-        @use_linear_model.setter
-        def use_linear_model(self, value: bool) -> None:
-            self._use_linear_model = value
             self.parameters = self._create_parameters_dictionary()
 
         @property
@@ -154,6 +135,15 @@ if EXTRAS_ENABLED:
         @maximum_number_of_candidates.setter
         def maximum_number_of_candidates(self, value: int) -> None:
             self._maximum_number_of_candidates = value
+            self.parameters = self._create_parameters_dictionary()
+
+        @property
+        def maximum_number_of_molecules(self) -> int:
+            return self._maximum_number_of_molecules
+
+        @maximum_number_of_molecules.setter
+        def maximum_number_of_molecules(self, value: int) -> None:
+            self._maximum_number_of_molecules = value
             self.parameters = self._create_parameters_dictionary()
 
         @property
@@ -193,24 +183,6 @@ if EXTRAS_ENABLED:
             self.parameters = self._create_parameters_dictionary()
 
         @property
-        def use_specific_rings(self) -> bool:
-            return self._use_specific_rings
-
-        @use_specific_rings.setter
-        def use_specific_rings(self, value: bool) -> None:
-            self._use_specific_rings = value
-            self.parameters = self._create_parameters_dictionary()
-
-        @property
-        def use_fragment_const(self) -> bool:
-            return self._use_fragment_const
-
-        @use_fragment_const.setter
-        def use_fragment_const(self, value: bool) -> None:
-            self._use_fragment_const = value
-            self.parameters = self._create_parameters_dictionary()
-
-        @property
         def parameters(self) -> Dict[str, Any]:
             return self._parameters
 
@@ -235,4 +207,4 @@ if EXTRAS_ENABLED:
             return molecules_df["SMILES"].tolist()
 
 else:
-    logger.warning("install AMD_analytcs extras to use MolGX")
+    logger.warning("install molgx extras to use MolGX")
