@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 if EXTRAS_ENABLED:
-    from ....extras.molgx import *  # Hsu
+    from molgx import *  # Hsu
 
     class MolGXGenerator:
         """Interface for MolGX generator."""
