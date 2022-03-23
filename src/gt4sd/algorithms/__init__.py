@@ -35,6 +35,7 @@ from .generation.hugging_face.core import (  # noqa: F401
     HuggingFaceXLMGenerator,
     HuggingFaceXLNetGenerator,
 )
+from .generation.molgx.core import MolGXQM9Generator  # noqa: F401
 from .generation.pgt.core import (  # noqa: F401
     PGTCoherenceChecker,
     PGTEditor,
@@ -51,4 +52,3 @@ if EXTRAS_ENABLED:
         PAG,
         CogMol,
     )
-    from .generation.molgx.core import MolGXQM9Generator  # noqa: F401

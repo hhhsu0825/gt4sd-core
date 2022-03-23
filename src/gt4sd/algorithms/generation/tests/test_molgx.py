@@ -5,14 +5,9 @@ from typing import ClassVar, Type
 import pytest
 
 from gt4sd.algorithms.core import AlgorithmConfiguration
+from gt4sd.algorithms.generation.molgx import MolGX, MolGXQM9Generator
 from gt4sd.algorithms.registry import ApplicationsRegistry
-from gt4sd.extras import EXTRAS_ENABLED
 from gt4sd.tests.utils import GT4SDTestSettings
-
-if not EXTRAS_ENABLED:
-    pytest.skip("Extras from custom PyPI disabled", allow_module_level=True)
-else:
-    from gt4sd.algorithms.generation.molgx import MolGX, MolGXQM9Generator
 
 test_settings = GT4SDTestSettings.get_instance()
 
