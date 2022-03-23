@@ -5,7 +5,7 @@ MolGX generation algorithm.
 
 import logging
 from dataclasses import field
-from typing import Any, ClassVar, Dict, Iterator, Optional, TypeVar
+from typing import Any, ClassVar, Dict, Iterator, Optional, TypeVar, Tuple
 
 from ....extras import EXTRAS_ENABLED
 
@@ -117,53 +117,43 @@ if EXTRAS_ENABLED:
         domain: ClassVar[str] = "materials"
         algorithm_version: str = "v0"
 
-        homo_energy_value: float = field(
-            default=-0.25,
-            metadata=dict(description="Target HOMO energy value."),
+        homo_energy_value: Tuple = field(
+            default=(-0.5, 0.5),
+            metadata=dict(description="Target HOMO energy range."),
         )
-        lumo_energy_value: float = field(
-            default=0.08,
-            metadata=dict(description="Target LUMO energy value."),
-        )
-        use_linear_model: bool = field(
-            default=True,
-            metadata=dict(description="Linear model usage."),
+        lumo_energy_value: Tuple = field(
+            default=(-0.5, 0.5),
+            metadata=dict(description="Target LUMO energy eange."),
         )
         number_of_candidates: int = field(
-            default=2,
-            metadata=dict(description="Number of candidates to consider."),
+            default=10,
+            metadata=dict(description="Number of feature vectors at a time."),
         )
         maximum_number_of_candidates: int = field(
-            default=5,
-            metadata=dict(description="Maximum number of candidates to consider."),
+            default=50,
+            metadata=dict(description="Maximum number of candidate feature vector to consider."),
+        )
+        maximum_number_of_molecules: int = field(
+            default=100,
+            metadata=dict(description="Maximum number of Molecules to obtain."),
         )
         maximum_number_of_solutions: int = field(
             default=10,
-            metadata=dict(description="Maximum number of solutions."),
+            metadata=dict(description="Maximum number of solutions to discover."),
         )
         maximum_number_of_nodes: int = field(
-            default=50000,
+            default=200000,
             metadata=dict(
-                description="Maximum number of nodes in the graph exploration."
+                description="Maximum number of search tree nodes in the graph exploration."
             ),
         )
         beam_size: int = field(
-            default=2000,
+            default=1000,
             metadata=dict(description="Size of the beam during search."),
         )
         without_estimate: bool = field(
             default=True,
-            metadata=dict(description="Disable estimates."),
-        )
-        use_specific_rings: bool = field(
-            default=True,
-            metadata=dict(
-                description="Flag to indicate whether specific rings are used."
-            ),
-        )
-        use_fragment_const: bool = field(
-            default=False,
-            metadata=dict(description="Using constant fragments."),
+            metadata=dict(description="Generation without feature estimates."),
         )
 
         def get_target_description(self) -> Optional[Dict[str, str]]:
@@ -187,16 +177,13 @@ if EXTRAS_ENABLED:
                 resources_path=resources_path,
                 homo_energy_value=self.homo_energy_value,
                 lumo_energy_value=self.lumo_energy_value,
-                use_linear_model=self.use_linear_model,
                 number_of_candidates=self.number_of_candidates,
                 maximum_number_of_candidates=self.maximum_number_of_candidates,
+                maximum_number_of_molecules=self.maximum_number_of_molecules,
                 maximum_number_of_solutions=self.maximum_number_of_solutions,
                 maximum_number_of_nodes=self.maximum_number_of_nodes,
                 beam_size=self.beam_size,
                 without_estimate=self.without_estimate,
-                use_specific_rings=self.use_specific_rings,
-                use_fragment_const=self.use_fragment_const,
-                tag_name="qm9",
             )
 
         def validate_item(self, item: str) -> SmallMolecule:
